@@ -29,6 +29,10 @@ public class JavaNativeCodeSandbox implements CodeSandbox {
 
     private static final String GLOBAL_CODE_FILE_NAME = "Main.java";
 
+    private static final String SECURITY_MANAGER_CLASS_PATH = "/Users/codejuzi/Documents/CodeWorkSpace/Projects/JuOj/code-sandbox/src/main/resources/security";
+
+    private static final String SECURITY_CLASS_NAME = "UserCodeSecurityManager";
+
 
     @Override
     public ExecuteCodeResponse execute(ExecuteCodeRequest executeCodeRequest) {
@@ -58,16 +62,18 @@ public class JavaNativeCodeSandbox implements CodeSandbox {
                 throw new RuntimeException("Compile Error!");
             }
         } catch (IOException | RuntimeException e) {
+            clearFile(userCodeFile);
             return handleError(e);
         }
 
         // 3、执行代码
-        String runCmdPattern = "java -Dfile.encoding=UTF-8 -cp %s Main %s";
+        // 此处mac下是使用 : 分割不同类，windows下是使用 ; 分割不同类名
+        String runCmdPattern = "java -Dfile.encoding=UTF-8 -cp %s:%s -Djava.security.manager=%s Main %s";
         List<String> inputList = executeCodeRequest.getInputList();
         List<ExecuteMessage> executeMessageList = new ArrayList<>();
         for (String inputArgs : inputList) {
-            String runCmd = String.format(runCmdPattern, userCodeParentPath, inputArgs);
-
+            String runCmd = String.format(runCmdPattern, userCodeParentPath,
+                    SECURITY_MANAGER_CLASS_PATH, SECURITY_CLASS_NAME, inputArgs);
             try {
                 Process runProcess = Runtime.getRuntime().exec(runCmd);
 //                ExecuteMessage executeMessage = ProcessUtil.getInteractProcessMessage(runProcess, inputArgs); // 交互式
@@ -75,6 +81,7 @@ public class JavaNativeCodeSandbox implements CodeSandbox {
                 log.info("execute message: {}", executeMessage);
                 executeMessageList.add(executeMessage);
             } catch (IOException e) {
+                clearFile(userCodeFile);
                 return handleError(e);
             }
         }
@@ -109,12 +116,14 @@ public class JavaNativeCodeSandbox implements CodeSandbox {
         executeCodeResponse.setJudgeInfo(judgeInfo);
 
         // 5、清理文件
-        if (userCodeFile.getParentFile() != null) {
-            boolean delFileRes = FileUtil.del(userCodeParentPath);
-            log.info("Delete File Result: {}", delFileRes);
-        }
+        clearFile(userCodeFile);
 
         return executeCodeResponse;
+    }
+
+    private void clearFile(File file) {
+        boolean delFileRes = FileUtil.del(file);
+        log.info("Delete File Result: {}", delFileRes);
     }
 
     private ExecuteCodeResponse handleError(Throwable e) {
