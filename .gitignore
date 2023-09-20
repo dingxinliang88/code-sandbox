@@ -33,3 +33,4 @@ build/
 
 src/main/resources/test_code
 tmp_code
+src/test/**/DockerProperties.java
