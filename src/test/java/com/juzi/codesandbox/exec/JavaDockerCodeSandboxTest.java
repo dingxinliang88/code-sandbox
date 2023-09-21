@@ -9,7 +9,7 @@ import java.util.Arrays;
 /**
  * @author codejuzi
  */
-public class JavaNativeCodeSandboxTest {
+public class JavaDockerCodeSandboxTest {
     public static void main(String[] args) {
         nonInteractCode();
 //        interactCode();
@@ -27,8 +27,8 @@ public class JavaNativeCodeSandboxTest {
                 .inputList(Arrays.asList("2 3", "3 4"))
                 .build();
 
-        JavaNativeCodeSandbox javaNativeCodeSandbox = new JavaNativeCodeSandbox();
-        ExecuteCodeResponse response = javaNativeCodeSandbox.execute(request);
+        JavaDockerCodeSandbox codeSandbox = new JavaDockerCodeSandbox();
+        ExecuteCodeResponse response = codeSandbox.execute(request);
         System.out.println("response = " + response);
     }
 
@@ -45,7 +45,8 @@ public class JavaNativeCodeSandboxTest {
                         "}")
                 .inputList(Arrays.asList("2 3", "3 4"))
                 .build();
-        JavaNativeCodeSandbox javaNativeCodeSandbox = new JavaNativeCodeSandbox();
-        javaNativeCodeSandbox.execute(request);
+        JavaDockerCodeSandbox codeSandbox = new JavaDockerCodeSandbox();
+        ExecuteCodeResponse response = codeSandbox.execute(request);
+        System.out.println("response = " + response);
     }
 }

@@ -16,8 +16,8 @@ public class UserCodeSecurityManager extends SecurityManager {
      */
     @Override
     public void checkPermission(Permission perm) {
-        System.out.println("存在请求权限：" + perm.toString());
-        // super.checkPermission(perm);
+//        System.out.println("存在请求权限：" + perm.toString());
+//         super.checkPermission(perm);
     }
 
     /**
