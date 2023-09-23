@@ -93,9 +93,10 @@ public class JavaDockerCodeSandbox extends CodeSandboxTemplate {
         // 开启Linux安全配置
         String linuxSecurityConfig = ResourceUtil.readUtf8Str("linux/security_config.json");
         hostConfig.withSecurityOpts(Collections.singletonList("seccomp=" + linuxSecurityConfig));
-        // 设置容器挂载目录
-//        hostConfig.setBinds(new Bind(userCodeParentPath, new Volume("/app/code")));
-        hostConfig.setBinds(new Bind("/root/oj-codes", new Volume("/app/code")));
+        // TODO 设置容器挂载目录
+        String userCodeParentPath = userCodeFile.getParentFile().getAbsolutePath();
+        hostConfig.setBinds(new Bind(userCodeParentPath, new Volume("/app/code")));
+//        hostConfig.setBinds(new Bind("/root/oj-codes", new Volume("/app/code")));
         CreateContainerResponse response = containerCmd
                 .withHostConfig(hostConfig)
                 // 禁用网络

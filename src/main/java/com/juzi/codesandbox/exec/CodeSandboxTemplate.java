@@ -35,6 +35,7 @@ public abstract class CodeSandboxTemplate implements CodeSandbox {
 
     private static final String GLOBAL_CODE_FILE_NAME = "Main.java";
 
+    // todo 上线换成实际的path
     private static final String SECURITY_MANAGER_CLASS_PATH = "/Users/codejuzi/Documents/CodeWorkSpace/Projects/JuOj/code-sandbox/src/main/resources/security";
 
     private static final String SECURITY_CLASS_NAME = "UserCodeSecurityManager";
