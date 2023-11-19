@@ -45,11 +45,6 @@ public class JavaDockerCodeSandbox extends CodeSandboxTemplate {
     private static final Long TIME_OUT = 3000L;
 
     @Override
-    public ExecuteCodeResponse execute(ExecuteCodeRequest executeCodeRequest) {
-        return super.execute(executeCodeRequest);
-    }
-
-    @Override
     protected List<ExecuteMessage> runCode(File userCodeFile, List<String> inputList) {
         // 3、创建容器，上传编译文件
         DockerClientConfig config = DefaultDockerClientConfig.createDefaultConfigBuilder()

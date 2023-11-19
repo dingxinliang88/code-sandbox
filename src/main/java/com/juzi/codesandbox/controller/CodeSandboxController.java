@@ -1,6 +1,6 @@
 package com.juzi.codesandbox.controller;
 
-import com.juzi.codesandbox.exec.JavaNativeCodeSandbox;
+import com.juzi.codesandbox.exec.JavaNativeArgsCodeSandbox;
 import com.juzi.codesandbox.model.ExecuteCodeRequest;
 import com.juzi.codesandbox.model.ExecuteCodeResponse;
 import lombok.extern.slf4j.Slf4j;
@@ -25,7 +25,7 @@ import static com.juzi.codesandbox.auth.AuthRequest.AUTH_REQUEST_SECRET;
 public class CodeSandboxController {
 
     @Resource
-    private JavaNativeCodeSandbox codeSandbox;
+    private JavaNativeArgsCodeSandbox codeSandbox;
 
     /**
      * 执行代码接口

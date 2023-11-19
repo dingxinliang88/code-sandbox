@@ -17,6 +17,13 @@ import java.util.List;
 @Slf4j
 public class ProcessUtil {
 
+    /**
+     * 获取进程执行信息
+     *
+     * @param processType 进程类型
+     * @param runProcess  进程
+     * @return 执行信息
+     */
     public static ExecuteMessage getRunProcessMessage(String processType, Process runProcess) {
         ExecuteMessage executeMessage = new ExecuteMessage();
         StopWatch stopWatch = new StopWatch();
@@ -40,33 +47,70 @@ public class ProcessUtil {
             stopWatch.stop();
             executeMessage.setTime(stopWatch.getLastTaskTimeMillis());
         } catch (IOException | InterruptedException e) {
-            throw new RuntimeException(e);
+            log.error(processType + "failed：", e);
         }
         return executeMessage;
     }
 
-    public static ExecuteMessage getInteractProcessMessage(Process runProcess, String args) {
+    /**
+     * 执行交互式进程并获取信息
+     *
+     * @param runProcess 进程
+     * @param input      输入
+     * @return 执行信息
+     */
+    public static ExecuteMessage getInteractProcessMessage(Process runProcess, String input) throws IOException {
         ExecuteMessage executeMessage = new ExecuteMessage();
 
-        try (OutputStream outputStream = runProcess.getOutputStream();
-             OutputStreamWriter outputStreamWriter = new OutputStreamWriter(outputStream)) {
-            // 从控制台输入参数
-            String[] arguments = args.split(" ");
-            String join = StringUtils.join(arguments, "\n") + "\n";
-            outputStreamWriter.write(join);
-            // 回车，发送参数
-            outputStreamWriter.flush();
+        StringReader inputReader = new StringReader(input);
+        BufferedReader inputBufferedReader = new BufferedReader(inputReader);
 
-            executeMessage.setMessage(getMessage(runProcess.getInputStream()));
+        //计时
+        StopWatch stopWatch = new StopWatch();
+        stopWatch.start();
 
-            // 释放资源
-            runProcess.destroy();
-        } catch (Exception e) {
-            e.printStackTrace();
+        //输入（模拟控制台输入）
+        PrintWriter consoleInput = new PrintWriter(runProcess.getOutputStream());
+        String line;
+        while ((line = inputBufferedReader.readLine()) != null) {
+            consoleInput.println(line);
+            consoleInput.flush();
         }
+        consoleInput.close();
+
+        //获取输出
+        BufferedReader userCodeOutput = new BufferedReader(new InputStreamReader(runProcess.getInputStream()));
+        List<String> outputList = new ArrayList<>();
+        String outputLine;
+        while ((outputLine = userCodeOutput.readLine()) != null) {
+            outputList.add(outputLine);
+        }
+        userCodeOutput.close();
+
+        //获取错误输出
+        BufferedReader errorOutput = new BufferedReader(new InputStreamReader(runProcess.getErrorStream()));
+        List<String> errorList = new ArrayList<>();
+        String errorLine;
+        while ((errorLine = errorOutput.readLine()) != null) {
+            errorList.add(errorLine);
+        }
+        errorOutput.close();
+
+        stopWatch.stop();
+        executeMessage.setTime(stopWatch.getLastTaskTimeMillis());
+        executeMessage.setMessage(StringUtils.join(outputList, "\n"));
+        executeMessage.setErrorMessage(StringUtils.join(errorList, "\n"));
+        runProcess.destroy();
+
         return executeMessage;
     }
 
+    /**
+     * 获取流is的输出
+     *
+     * @param is 输出流
+     * @return 输出信息
+     */
     private static String getMessage(InputStream is) throws IOException {
         // 通过进程获取正常输出到控制台的信息
         BufferedReader logReader = new BufferedReader(new InputStreamReader(is));
@@ -76,7 +120,7 @@ public class ProcessUtil {
         while ((logLine = logReader.readLine()) != null) {
             logLineList.add(logLine);
         }
-
+        logReader.close();
         return StringUtils.join(logLineList, "\n");
     }
 }

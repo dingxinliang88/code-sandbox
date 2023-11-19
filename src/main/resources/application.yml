@@ -1,2 +1,8 @@
 server:
   port: 8888
+
+# oj.sandbox.security-manager-path
+oj:
+  sandbox:
+    security-manager-path: /Users/codejuzi/Documents/CodeWorkSpace/Project/JuOj/code-sandbox/src/main/resources/security
+    security-manager-class-name: UserCodeSecurityManager

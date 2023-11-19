@@ -17,10 +17,19 @@ public class ExecuteCodeRequest implements Serializable {
 
     private static final long serialVersionUID = -1729942560382446421L;
 
+    /**
+     * 题目输入
+     */
     private List<String> inputList;
 
+    /**
+     * 代码信息
+     */
     private String code;
 
+    /**
+     * 编程语言
+     */
     private String language;
 
 }

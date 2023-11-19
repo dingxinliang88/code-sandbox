@@ -1,5 +1,6 @@
 package com.juzi.codesandbox.model;
 
+import lombok.Getter;
 import org.apache.commons.lang3.ObjectUtils;
 
 import java.util.Arrays;
@@ -7,16 +8,15 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 /**
- * 题目提交枚举
+ * 代码沙箱执行代码状态枚举
  *
  * @author codejuzi
  */
+@Getter
 public enum CodeSandboxStatusEnum {
 
-    // 0 - 待判题、1 - 判题中、2 - AC、3 - Failed
-    SUCCEED("成功", 0),
-    FAILED("出错", 1),
-    ;
+    SUCCESS("成功", 0),
+    FAILED("出错", 1);
 
 
     private final String text;
@@ -42,13 +42,5 @@ public enum CodeSandboxStatusEnum {
             }
         }
         return null;
-    }
-
-    public Integer getValue() {
-        return value;
-    }
-
-    public String getText() {
-        return text;
     }
 }

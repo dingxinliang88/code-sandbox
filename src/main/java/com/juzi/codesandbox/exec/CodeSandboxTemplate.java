@@ -3,6 +3,8 @@ package com.juzi.codesandbox.exec;
 import cn.hutool.core.io.FileUtil;
 import cn.hutool.core.lang.UUID;
 import cn.hutool.core.util.RandomUtil;
+import cn.hutool.dfa.FoundWord;
+import cn.hutool.dfa.WordTree;
 import com.juzi.codesandbox.model.ExecuteCodeRequest;
 import com.juzi.codesandbox.model.ExecuteCodeResponse;
 import com.juzi.codesandbox.model.ExecuteMessage;
@@ -19,8 +21,10 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
+import static com.juzi.codesandbox.constants.CodeSandboxConstants.GLOBAL_CODE_DIR_NAME;
+import static com.juzi.codesandbox.constants.CodeSandboxConstants.GLOBAL_CODE_FILE_NAME;
 import static com.juzi.codesandbox.model.CodeSandboxStatusEnum.FAILED;
-import static com.juzi.codesandbox.model.CodeSandboxStatusEnum.SUCCEED;
+import static com.juzi.codesandbox.model.CodeSandboxStatusEnum.SUCCESS;
 
 /**
  * 代码沙箱模板
@@ -30,18 +34,18 @@ import static com.juzi.codesandbox.model.CodeSandboxStatusEnum.SUCCEED;
 @Slf4j
 public abstract class CodeSandboxTemplate implements CodeSandbox {
 
+    /**
+     * 敏感词（字典树）
+     */
+    private static final WordTree SENSITIVE_WORD_TREE;
 
-    private static final String GLOBAL_CODE_DIR_NAME = "tmp_code";
-
-    private static final String GLOBAL_CODE_FILE_NAME = "Main.java";
-
-    // todo 上线换成实际的path
-    private static final String SECURITY_MANAGER_CLASS_PATH = "/Users/codejuzi/Documents/CodeWorkSpace/Projects/JuOj/code-sandbox/src/main/resources/security";
-
-    private static final String SECURITY_CLASS_NAME = "UserCodeSecurityManager";
-
-    private static final Long TIME_OUT = 10000L;
-
+    static {
+        SENSITIVE_WORD_TREE = new WordTree();
+        String projectPath = System.getProperty("user.dir");
+        String sensitiveWordsFilePath = projectPath + File.separator + "src/main/resources/data/sensitive-word.txt";
+        List<String> words = FileUtil.readLines(sensitiveWordsFilePath, StandardCharsets.UTF_8);
+        SENSITIVE_WORD_TREE.addWords(words);
+    }
 
     @Override
     public ExecuteCodeResponse execute(ExecuteCodeRequest executeCodeRequest) {
@@ -67,19 +71,25 @@ public abstract class CodeSandboxTemplate implements CodeSandbox {
             response = getOutputResponse(executeMessageList);
 
         } catch (Exception e) {
-            log.error("发生异常：", e);
+            log.error("execute code error：", e);
             // 处理异常
             return handleError(e);
         } finally {
             // 5、清理文件
-            assert userCodeFile != null;
-            clearFile(userCodeFile);
+            if (userCodeFile != null)
+                clearFile(userCodeFile);
         }
 
         return response;
     }
 
     private File save2File(String code) {
+        // 0、判断code是否包含敏感词
+        FoundWord foundWord = SENSITIVE_WORD_TREE.matchWord(code);
+
+        if (foundWord != null) {
+            throw new IllegalArgumentException("Code is Illegal with word: [" + foundWord.getFoundWord() + "]");
+        }
         // 1、保存用户代码为文件
         // 获取用户工作文件路径
         String userDir = System.getProperty("user.dir");
@@ -108,33 +118,7 @@ public abstract class CodeSandboxTemplate implements CodeSandbox {
         return executeMessage;
     }
 
-    protected List<ExecuteMessage> runCode(File userCodeFile, List<String> inputList) throws IOException {
-        // 3、执行代码
-        // 此处mac下是使用 : 分割不同类，windows下是使用 ; 分割不同类名
-        String runCmdPattern = "java -Xmx156m -Dfile.encoding=UTF-8 -cp %s:%s -Djava.security.manager=%s Main %s";
-        String userCodeParentPath = userCodeFile.getParentFile().getAbsolutePath();
-        List<ExecuteMessage> executeMessageList = new ArrayList<>();
-        for (String inputArgs : inputList) {
-            String runCmd = String.format(runCmdPattern, userCodeParentPath,
-                    SECURITY_MANAGER_CLASS_PATH, SECURITY_CLASS_NAME, inputArgs);
-            Process runProcess = Runtime.getRuntime().exec(runCmd);
-//                ExecuteMessage executeMessage = ProcessUtil.getInteractProcessMessage(runProcess, inputArgs); // 交互式
-            // 超时控制
-//            new Thread(() -> {
-//                try {
-//                    TimeUnit.MILLISECONDS.sleep(TIME_OUT);
-//                    log.info("程序运行超时，已经中断");
-//                    runProcess.destroy();
-//                } catch (Exception e) {
-//                    throw new RuntimeException(e);
-//                }
-//            }).start();
-            ExecuteMessage executeMessage = ProcessUtil.getRunProcessMessage("Run Code", runProcess);
-            log.info("execute message: {}", executeMessage);
-            executeMessageList.add(executeMessage);
-        }
-        return executeMessageList;
-    }
+    protected abstract List<ExecuteMessage> runCode(File userCodeFile, List<String> inputList) throws IOException;
 
     private ExecuteCodeResponse getOutputResponse(List<ExecuteMessage> executeMessageList) {
         // 4、整理输出结果
@@ -156,7 +140,7 @@ public abstract class CodeSandboxTemplate implements CodeSandbox {
         }
         // 正常执行
         if (outputList.size() == executeMessageList.size()) {
-            executeCodeResponse.setStatus(SUCCEED.getValue());
+            executeCodeResponse.setStatus(SUCCESS.getValue());
         }
         executeCodeResponse.setOutputList(outputList);
 
