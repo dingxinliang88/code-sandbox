@@ -1,15 +1,15 @@
 package com.juzi.codesandbox.controller;
 
-import com.juzi.codesandbox.exec.JavaNativeArgsCodeSandbox;
+import com.juzi.codesandbox.exec.JavaDockerCodeSandbox;
 import com.juzi.codesandbox.model.ExecuteCodeRequest;
 import com.juzi.codesandbox.model.ExecuteCodeResponse;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
@@ -24,8 +24,8 @@ import static com.juzi.codesandbox.auth.AuthRequest.AUTH_REQUEST_SECRET;
 @RequestMapping("/")
 public class CodeSandboxController {
 
-    @Resource
-    private JavaNativeArgsCodeSandbox codeSandbox;
+    @Autowired
+    private JavaDockerCodeSandbox codeSandbox;
 
     /**
      * 执行代码接口

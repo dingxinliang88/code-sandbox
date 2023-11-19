@@ -1,8 +1,15 @@
 server:
   port: 8888
 
-# oj.sandbox.security-manager-path
+spring:
+  config:
+    import:
+      - 'classpath:/config/docker.properties'
+
 oj:
   sandbox:
     security-manager-path: /Users/codejuzi/Documents/CodeWorkSpace/Project/JuOj/code-sandbox/src/main/resources/security
     security-manager-class-name: UserCodeSecurityManager
+  docker:
+    host: ${docker.host} # tcp://ip:port (eg tcp://127.0.0.1:2375)
+    api-version: ${docker.api_version}

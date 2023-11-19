@@ -14,6 +14,7 @@ import com.juzi.codesandbox.model.ExecuteCodeRequest;
 import com.juzi.codesandbox.model.ExecuteCodeResponse;
 import com.juzi.codesandbox.model.ExecuteMessage;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StopWatch;
 
@@ -25,6 +26,8 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
+import static com.juzi.codesandbox.constants.CodeSandboxConstants.TIME_OUT;
+
 /**
  * Docker实现代码沙箱
  *
@@ -34,27 +37,46 @@ import java.util.concurrent.TimeUnit;
 @Component
 public class JavaDockerCodeSandbox extends CodeSandboxTemplate {
 
+    @Value("${oj.docker.host:localhost}")
+    private String DOCKER_HOST;
 
-    // todo 替换成实际的地址
-    private static final String DOCKER_HOST = "xxx";
-
-    private static final String API_VERSION = "1.43";
+    @Value("${oj.docker.api-version:1.43}")
+    private String API_VERSION;
 
     private boolean FIRST_INIT = true;
-
-    private static final Long TIME_OUT = 3000L;
 
     @Override
     protected List<ExecuteMessage> runCode(File userCodeFile, List<String> inputList) {
         // 3、创建容器，上传编译文件
+        DockerClient dockerClient = createDockerClient();
+
+        // 3.1 拉取镜像
+        String image = "openjdk:8-alpine";
+//        pullImage(dockerClient, image);
+
+        // 3.2 创建容器，获取容器ID
+        String containerId = createContainer(dockerClient, image, userCodeFile);
+
+        // 3.3 启动容器
+        dockerClient.startContainerCmd(containerId).exec();
+
+        // 3.4 执行命令：docker exec containerId java -cp /app/code Main args
+        List<ExecuteMessage> execMessageList = execCmd(dockerClient, containerId, inputList);
+
+        // 删除容器（强制删除）
+        dockerClient.removeContainerCmd(containerId).withForce(true).exec();
+        return execMessageList;
+    }
+
+    private DockerClient createDockerClient() {
         DockerClientConfig config = DefaultDockerClientConfig.createDefaultConfigBuilder()
                 .withDockerHost(DOCKER_HOST)
                 .withApiVersion(API_VERSION)
                 .build();
-        DockerClient dockerClient = DockerClientBuilder.getInstance(config).build();
+        return DockerClientBuilder.getInstance(config).build();
+    }
 
-        // 3.1 拉取镜像
-        String image = "openjdk:8-alpine";
+    private void pullImage(DockerClient dockerClient, String image) {
         if (FIRST_INIT) {
             PullImageCmd pullImageCmd = dockerClient.pullImageCmd(image);
             try {
@@ -73,8 +95,9 @@ public class JavaDockerCodeSandbox extends CodeSandboxTemplate {
                 throw new RuntimeException(e);
             }
         }
+    }
 
-        // 3.2 创建容器
+    private String createContainer(DockerClient dockerClient, String image, File userCodeFile) {
         CreateContainerCmd containerCmd = dockerClient.createContainerCmd(image);
         // 创建容器配置
         HostConfig hostConfig = new HostConfig();
@@ -90,8 +113,8 @@ public class JavaDockerCodeSandbox extends CodeSandboxTemplate {
         hostConfig.withSecurityOpts(Collections.singletonList("seccomp=" + linuxSecurityConfig));
         // TODO 设置容器挂载目录
         String userCodeParentPath = userCodeFile.getParentFile().getAbsolutePath();
-        hostConfig.setBinds(new Bind(userCodeParentPath, new Volume("/app/code")));
-//        hostConfig.setBinds(new Bind("/root/oj-codes", new Volume("/app/code")));
+//        hostConfig.setBinds(new Bind(userCodeParentPath, new Volume("/app/code")));
+        hostConfig.setBinds(new Bind("/home/oj/code/", new Volume("/app/code")));
         CreateContainerResponse response = containerCmd
                 .withHostConfig(hostConfig)
                 // 禁用网络
@@ -103,13 +126,10 @@ public class JavaDockerCodeSandbox extends CodeSandboxTemplate {
                 // 开启交互终端
                 .withTty(true)
                 .exec();
+        return response.getId();
+    }
 
-        String containerId = response.getId();
-
-        // 3.3 启动容器
-        dockerClient.startContainerCmd(containerId).exec();
-
-        // 3.4 执行命令：docker exec containerId java -cp /app/code Main args
+    private List<ExecuteMessage> execCmd(DockerClient dockerClient, String containerId, List<String> inputList) {
         List<ExecuteMessage> execMessageList = new ArrayList<>();
 
         StopWatch stopWatch = new StopWatch();
@@ -131,11 +151,11 @@ public class JavaDockerCodeSandbox extends CodeSandboxTemplate {
                     .withAttachStdout(true)
                     .exec();
             String execId = execCreateCmdResponse.getId();
-            log.info("创建执行命令ID：{}", execId);
+            log.info("create command exec ID：{}", execId);
 
             final boolean[] isTimeOut = {true};
             if (execId == null) {
-                throw new RuntimeException("执行命令不存在");
+                throw new IllegalArgumentException("execute command is not found!");
             }
             ExecStartResultCallback execStartResultCallback = new ExecStartResultCallback() {
                 @Override
@@ -144,11 +164,11 @@ public class JavaDockerCodeSandbox extends CodeSandboxTemplate {
                     StreamType streamType = frame.getStreamType();
                     if (StreamType.STDERR.equals(streamType)) {
                         errorDockerMessage[0] = new String(frame.getPayload());
-                        log.error("错误输出结果：{}", errorDockerMessage[0]);
+                        log.error("error docker message：{}", errorDockerMessage[0]);
                     } else {
                         dockerMessage[0] = new String(frame.getPayload()).replace("\n", "");
                         outputList.add(dockerMessage[0]);
-                        log.info("输出结果：{}", dockerMessage[0]);
+                        log.info("docker message：{}", dockerMessage[0]);
                     }
                     super.onNext(frame);
                 }
@@ -156,6 +176,7 @@ public class JavaDockerCodeSandbox extends CodeSandboxTemplate {
                 @Override
                 public void onComplete() {
                     // 设置不超时
+                    log.info("Code exec isn't time out");
                     isTimeOut[0] = false;
                     super.onComplete();
                 }
@@ -171,6 +192,7 @@ public class JavaDockerCodeSandbox extends CodeSandboxTemplate {
                 @Override
                 public void onNext(Statistics statistics) {
                     Long usageMemory = Optional.ofNullable(statistics.getMemoryStats().getUsage()).orElse(0L);
+                    log.info("memory cost: {}", usageMemory);
                     maxMemory[0] = Math.max(usageMemory, maxMemory[0]);
                 }
 
@@ -201,13 +223,13 @@ public class JavaDockerCodeSandbox extends CodeSandboxTemplate {
                 // 关闭统计
                 statsCmd.close();
             } catch (InterruptedException e) {
-                log.error("程序执行异常");
+                log.error("docker exec error");
                 throw new RuntimeException(e);
             }
 
             ExecuteMessage executeMessage = new ExecuteMessage();
             if (isTimeOut[0]) {
-                executeMessage.setMessage("超时");
+                executeMessage.setMessage("time out");
             }
             executeMessage.setTime(time);
             executeMessage.setErrorMessage(errorDockerMessage[0]);
@@ -219,11 +241,6 @@ public class JavaDockerCodeSandbox extends CodeSandboxTemplate {
             if (i < outputList.size())
                 execMessageList.get(i).setMessage(outputList.get(i));
         }
-
-        // 删除容器
-        dockerClient.removeContainerCmd(containerId)
-                .withForce(true) // 强制删除
-                .exec();
         return execMessageList;
     }
 

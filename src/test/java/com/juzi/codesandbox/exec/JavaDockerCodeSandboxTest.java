@@ -3,19 +3,26 @@ package com.juzi.codesandbox.exec;
 
 import com.juzi.codesandbox.model.ExecuteCodeRequest;
 import com.juzi.codesandbox.model.ExecuteCodeResponse;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.junit4.SpringRunner;
 
+import javax.annotation.Resource;
 import java.util.Arrays;
 
 /**
  * @author codejuzi
  */
+@SpringBootTest
+@RunWith(SpringRunner.class)
 public class JavaDockerCodeSandboxTest {
-    public static void main(String[] args) {
-        nonInteractCode();
-//        interactCode();
-    }
 
-    static void nonInteractCode() {
+    @Resource
+    private JavaDockerCodeSandbox javaDockerCodeSandbox;
+
+    @Test
+    public void nonInteractCode() {
         ExecuteCodeRequest request = ExecuteCodeRequest.builder()
                 .code("public class Main {\n" +
                         "    public static void main(String[] args) {\n" +
@@ -27,8 +34,7 @@ public class JavaDockerCodeSandboxTest {
                 .inputList(Arrays.asList("2 3", "3 4"))
                 .build();
 
-        JavaDockerCodeSandbox codeSandbox = new JavaDockerCodeSandbox();
-        ExecuteCodeResponse response = codeSandbox.execute(request);
+        ExecuteCodeResponse response = javaDockerCodeSandbox.execute(request);
         System.out.println("response = " + response);
     }
 
